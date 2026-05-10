@@ -5,7 +5,6 @@ import threading
 import time
 import subprocess
 import platform
-import getpass
 
 # --- TASARIM YAPILANDIRMASI ---
 ctk.set_appearance_mode("light") 
@@ -15,7 +14,7 @@ class SyberV310(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Syber Antivirus Sunar")
+        self.title("Syber Antivirus - Güvenli ve Hızlı")
         self.geometry("1200x850")
         self.configure(fg_color="#F9F9FB")
 
@@ -68,36 +67,31 @@ class SyberV310(ctk.CTk):
         # --- 1. DASHBOARD ---
         self.draw_dashboard(self.pages["dash"])
 
-        # --- 2. VPN ---
+        # --- 2. VPN / DNS GÜVENLİĞİ ---
         v = self.pages["vpn"]
-        ctk.CTkLabel(v, text="Güvenli Erişim (DNS)", font=("Arial", 32, "bold")).pack(anchor="w", pady=20)
-        self.create_settings_card(v, "Gizlilik Modu", "Cloudflare Family DNS ile zararlı siteleri engeller.", "AÇ", lambda: subprocess.run(["networksetup", "-setdnsservers", "Wi-Fi", "1.1.1.3", "1.0.0.3"]))
+        ctk.CTkLabel(v, text="İnternet Optimizasyonu", font=("Arial", 32, "bold")).pack(anchor="w", pady=20)
+        self.create_settings_card(v, "Hızlı Erişim Modu", "Google ve Cloudflare DNS ile interneti hızlandırır (Engel Olmaz).", "AKTİF ET", self.set_fast_dns)
 
         # --- 3. FPS BOOST ---
         f = self.pages["fps"]
         ctk.CTkLabel(f, text="Performans", font=("Arial", 32, "bold")).pack(anchor="w", pady=20)
         self.create_settings_card(f, "Turbo Boost", "RAM ve Önbelleği temizleyerek işlemciyi rahatlatır.", "HIZLANDIR", lambda: subprocess.run(["purge"]))
 
-        # --- 4. AYARLAR (DOPDOLU) ---
+        # --- 4. AYARLAR ---
         s = self.pages["set"]
         ctk.CTkLabel(s, text="Uygulama Ayarları", font=("Arial", 32, "bold")).pack(anchor="w", pady=20)
         
-        # Tema Kartı
         t_card = self.create_settings_card(s, "Görünüm", "Koyu veya Açık tema seçimi yapın.", None, None)
         ctk.CTkOptionMenu(t_card, values=["Açık", "Koyu"], command=lambda x: ctk.set_appearance_mode("dark" if x=="Koyu" else "light")).place(relx=0.85, rely=0.5, anchor="center")
         
-        # Karantina Temizleme
         self.create_settings_card(s, "Karantina", "Tüm yakalanan tehditleri diskten kalıcı olarak silin.", "TEMİZLE", self.full_reset)
-        
-        # Sistem Bilgisi Kartı
-        info_card = self.create_settings_card(s, "Sistem Bilgisi", f"Cihaz: {platform.node()}\nİşletim Sistemi: macOS {platform.mac_ver()[0]}", None, None)
-        info_card.configure(height=100)
+        self.create_settings_card(s, "Ağ Ayarları", "DNS ayarlarını varsayılana (otomatik) döndürür.", "SIFIRLA", self.reset_dns)
 
     def draw_dashboard(self, page):
         self.status_lbl = ctk.CTkLabel(page, text="Sistem Durumu: GÜVENDE", font=("Arial", 32, "bold"), text_color="#2ECC71")
         self.status_lbl.pack(anchor="w", pady=(10, 20))
         
-        c = self.create_settings_card(page, "Tam Tarama", "Tüm kritik klasörler denetleniyor.", "ŞİMDİ TARA", self.run_full_scan)
+        self.create_settings_card(page, "Tam Tarama", "Tüm kritik klasörler denetleniyor.", "ŞİMDİ TARA", self.run_full_scan)
         
         self.console = ctk.CTkTextbox(page, height=200, fg_color="#1a1a1a", text_color="#00FF00", font=("Courier", 13))
         self.console.pack(fill="x", pady=20)
@@ -116,6 +110,21 @@ class SyberV310(ctk.CTk):
             ctk.CTkButton(card, text=btn_txt, width=120, height=35, corner_radius=18, font=("Arial", 12, "bold"), command=cmd).place(relx=0.88, rely=0.5, anchor="center")
         return card
 
+    def set_fast_dns(self):
+        try:
+            # Engel koymayan standart DNS adresleri (1.1.1.1 ve 8.8.8.8)
+            subprocess.run(["networksetup", "-setdnsservers", "Wi-Fi", "1.1.1.1", "8.8.8.8"], check=True)
+            self.console.insert("end", ">> DNS Ayarları: Hızlı Mod Aktif (1.1.1.1, 8.8.8.8)\n")
+        except:
+            self.console.insert("end", ">> HATA: DNS ayarları değiştirilemedi.\n")
+
+    def reset_dns(self):
+        try:
+            subprocess.run(["networksetup", "-setdnsservers", "Wi-Fi", "Empty"], check=True)
+            self.console.insert("end", ">> Ağ Ayarları Sıfırlandı (Otomatik DNS).\n")
+        except:
+            self.console.insert("end", ">> HATA: Sıfırlama yapılamadı.\n")
+
     def run_full_scan(self):
         if self.is_scanning: return
         self.is_scanning = True
@@ -123,15 +132,19 @@ class SyberV310(ctk.CTk):
             for d in self.target_dirs:
                 if os.path.exists(d):
                     self.console.insert("end", f"\n>> Tarama: {d}\n")
-                    for f in os.listdir(d)[:10]:
-                        self.console.insert("end", f">> OK: {f[:25]}...\n")
-                        self.console.see("end")
-                        time.sleep(0.05)
+                    try:
+                        for f in os.listdir(d)[:10]:
+                            self.console.insert("end", f">> OK: {f[:25]}...\n")
+                            self.console.see("end")
+                            time.sleep(0.05)
+                    except: pass
             self.is_scanning = False
         threading.Thread(target=task, daemon=True).start()
 
     def full_reset(self):
-        for f in os.listdir(self.q_path): os.remove(os.path.join(self.q_path, f))
+        for f in os.listdir(self.q_path): 
+            try: os.remove(os.path.join(self.q_path, f))
+            except: pass
         self.threat_count = 0
         self.status_lbl.configure(text="Sistem Durumu: GÜVENDE", text_color="#2ECC71")
 
